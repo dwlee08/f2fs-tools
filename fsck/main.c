@@ -714,6 +714,35 @@ void f2fs_parse_options(int argc, char *argv[])
 			}
 		}
 #endif /* WITH_SLOAD */
+	} else if (!strcmp("tunesb.f2fs", prog)) {
+#ifdef WITH_TUNESB
+		const char *option_string = "c:";
+
+		c.func = TUNESB;
+		while ((option = getopt(argc, argv, option_string)) != EOF) {
+			switch (option) {
+			case 'c':
+				if (c.ndevs >= MAX_DEVICES) {
+					MSG(0, "Error: Too many devices\n");
+					mkfs_usage();
+				}
+
+				if (strlen(optarg) > MAX_PATH_LEN) {
+					MSG(0, "Error: device path should be less than "
+							"%d characters\n", MAX_PATH_LEN);
+					mkfs_usage();
+				}
+				c.devices[c.ndevs++].path = strdup(optarg);
+				break;
+			}
+			default:
+				err = EUNKNOWN_OPT;
+				break;
+			}
+			if (err != NOERROR)
+				break;
+		}
+#endif /* WITH_TUNESB */
 	}
 
 	if (err == NOERROR) {
@@ -982,6 +1011,12 @@ static u64 get_boottime_ns()
 }
 #endif
 
+#ifdef WITH_TUNESB
+static int do_tunesb()
+{
+}
+#endif
+
 int main(int argc, char **argv)
 {
 	struct f2fs_sb_info *sbi;
@@ -991,6 +1026,17 @@ int main(int argc, char **argv)
 	f2fs_init_configuration();
 
 	f2fs_parse_options(argc, argv);
+
+#ifdef WITH_TUNESB
+	if (c.func == TUNESB) {
+		if (f2fs_devs_are_umounted() < 0) {
+			ret = -1;
+			goto quick_err;
+		}
+		do_tunesb();
+		return 0;
+	}
+#endif
 
 	if (c.func != DUMP && f2fs_devs_are_umounted() < 0) {
 		if (errno == EBUSY) {
